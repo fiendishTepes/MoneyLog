@@ -1,23 +1,21 @@
 {
-    "name": "Spent - บันทึกรายจ่าย",
-    "short_name": "Spent",
-    "start_url": "./index.html",
-    "display": "standalone",
-    "background_color": "#ffffff",
-    "theme_color": "#0d6efd",
-    "orientation": "portrait",
-    "icons": [
-      {
-        "src": "icon-192.png",
-        "sizes": "192x192",
-        "type": "image/png",
-        "purpose": "any maskable"
-      },
-      {
-        "src": "icon-512.png",
-        "sizes": "512x512",
-        "type": "image/png",
-        "purpose": "any maskable"
-      }
-    ]
-  }
+  "name": "บันทึกรายจ่าย Meow",
+  "short_name": "MeowExpense",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#f0f2f5",
+  "theme_color": "#d63384",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

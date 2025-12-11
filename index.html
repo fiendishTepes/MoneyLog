@@ -4,89 +4,284 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>บันทึกรายจ่าย</title>
-    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-    
-    <link rel="stylesheet" href="style.css">
-    
     <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#f8f9fa">
+    <link rel="apple-touch-icon" href="icon192x192.png">
     
-    <meta name="theme-color" content="#0d6efd">
-    
-    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <style>
+        body { background-color: #f0f2f5; font-family: 'Sarabun', sans-serif; height: 100vh; display: flex; flex-direction: column; }
+        .top-bar { background: #fff; padding: 15px 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
+        .date-display { font-weight: bold; font-size: 1.1rem; color: #333; }
+        .main-content { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 20px; }
+        .amount-input { font-size: 3rem; text-align: center; border: none; background: transparent; width: 100%; font-weight: bold; color: #d63384; outline: none; }
+        .note-input { margin-top: 20px; text-align: center; border: 1px solid #ddd; border-radius: 10px; padding: 10px; width: 100%; }
+        .save-btn { margin-top: 30px; width: 100%; padding: 15px; border-radius: 50px; font-size: 1.2rem; font-weight: bold; box-shadow: 0 4px 15px rgba(214, 51, 132, 0.4); background: linear-gradient(45deg, #d63384, #fd7e14); border: none; color: white; }
+        .save-btn:active { transform: scale(0.98); }
+        .footer { text-align: center; font-size: 0.8rem; color: #aaa; padding: 10px; }
+        
+        /* Modal Customization */
+        .modal-body { max-height: 60vh; overflow-y: auto; }
+        .expense-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .expense-time { font-size: 0.8rem; color: #888; }
+        .sync-status { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .synced { background-color: #198754; }
+        .not-synced { background-color: #ffc107; }
+    </style>
 </head>
-<body class="bg-light">
+<body>
 
-    <div class="container main-container shadow-sm bg-white rounded pb-4 px-4">
-        <header class="d-flex justify-content-between align-items-center py-4 mb-2">
-            <button class="btn btn-outline-primary border-0 p-2" data-bs-toggle="modal" data-bs-target="#historyModal" style="font-size: 1.5rem;" aria-label="ดูประวัติย้อนหลัง">
-                <i class="bi bi-clock-history"></i>
-            </button>
-            
-            <div class="text-center date-display fw-bold fs-5" id="currentDateDisplay">
-                กำลังโหลด...
-            </div>
-
-            <div class="badge bg-primary rounded-pill p-2 px-3 fs-6" data-bs-toggle="modal" data-bs-target="#todayDetailModal" style="cursor: pointer; font-weight: normal;" aria-label="ดูรายละเอียดวันนี้">
-                <span id="todayTotalDisplay" class="fw-bold">0</span> ฿
-            </div>
-        </header>
-
-        <main>
-            <form id="expenseForm">
-                <div class="mb-4 mt-3">
-                    <label for="amountInput" class="form-label visually-hidden">ราคา</label>
-                    <input type="number" class="form-control text-center amount-input large-input" id="amountInput" placeholder="0.00" required inputmode="decimal" step="0.01">
-                </div>
-
-                <div class="mb-4">
-                    <label for="remarkInput" class="form-label visually-hidden">หมายเหตุ</label>
-                    <input type="text" class="form-control form-control-lg text-center rounded-pill bg-light border-0 py-3" id="remarkInput" placeholder="หมายเหตุ (ถ้ามี)">
-                </div>
-
-                <div class="d-grid gap-2 mt-5">
-                     <button type="submit" class="btn btn-primary btn-lg py-4 fs-2 fw-bold rounded-pill shadow-sm">บันทึก</button>
-                </div>
-            </form>
-        </main>
+    <div class="top-bar sticky-top">
+        <button class="btn btn-outline-secondary btn-sm" onclick="showHistory()">
+            <i class="bi bi-clock-history"></i> ประวัติ
+        </button>
+        <div class="date-display" id="currentDate">--/--/----</div>
+        <button class="btn btn-outline-primary btn-sm" onclick="showTodayList()">
+            รายการวันนี้
+        </button>
     </div>
 
+    <div class="main-content">
+        <div class="text-center mb-2 text-muted">ระบุจำนวนเงิน</div>
+        <input type="number" id="amount" class="amount-input" placeholder="0" inputmode="decimal">
+        
+        <input type="text" id="note" class="note-input" placeholder="หมายเหตุ (ถ้ามี)">
+        
+        <button class="save-btn" onclick="saveExpense()">บันทึกรายจ่าย</button>
+    </div>
 
-    <div class="modal fade" id="todayDetailModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered">
+    <div class="footer">
+        Version 1.0 by Cat 🐱<br>
+        <span id="connectionStatus" style="font-size: 0.7rem;">Checking...</span>
+    </div>
+
+    <div class="modal fade" id="listModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold">รายการวันนี้</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">รายการ</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
-                    <ul class="list-group list-group-flush" id="todayListContainer">
-                        </ul>
+                <div class="modal-body" id="modalListBody">
+                    </div>
+                <div class="modal-footer justify-content-between">
+                    <span class="text-muted small">รวม: <strong id="modalTotal" class="text-danger">0</strong> บาท</span>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ปิด</button>
                 </div>
             </div>
         </div>
     </div>
-
-    <div class="modal fade" id="historyModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header border-0 pb-0">
-                    <h5 class="modal-title fw-bold">ประวัติย้อนหลัง</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <ul class="list-group list-group-flush" id="historyListContainer">
-                         </ul>
-                </div>
-            </div>
-        </div>
-    </div>
-
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="app.js"></script>
+    <script>
+        // --- SETUP ---
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwfsZsqFXvn8gMYNgUWhi2h9zb_Zabcmwxp43812bhO1xJlFj0I-PWoZ5apGIMCnLPB/exec'; 
+        
+        // --- DATA MANAGEMENT ---
+        function getExpenses() {
+            const data = localStorage.getItem('expenses_db');
+            return data ? JSON.parse(data) : [];
+        }
+
+        function saveToLocal(expenses) {
+            localStorage.setItem('expenses_db', JSON.stringify(expenses));
+        }
+
+        // --- UI LOGIC ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const now = new Date();
+            const options = { year: 'numeric', month: 'short', day: 'numeric', weekday: 'short' };
+            document.getElementById('currentDate').innerText = now.toLocaleDateString('th-TH', options);
+            
+            // Check internet status
+            updateOnlineStatus();
+            window.addEventListener('online', updateOnlineStatus);
+            window.addEventListener('offline', updateOnlineStatus);
+            
+            // Try syncing pending data on load
+            syncPendingData();
+        });
+
+        function updateOnlineStatus() {
+            const status = document.getElementById('connectionStatus');
+            if (navigator.onLine) {
+                status.innerText = "Online (พร้อมเชื่อมต่อ Sheet)";
+                status.style.color = "green";
+                syncPendingData();
+            } else {
+                status.innerText = "Offline (บันทึกลงเครื่องเท่านั้น)";
+                status.style.color = "orange";
+            }
+        }
+
+        async function saveExpense() {
+            const amount = document.getElementById('amount').value;
+            const note = document.getElementById('note').value;
+
+            if (!amount || amount <= 0) {
+                alert('กรุณาใส่จำนวนเงินครับเหมียว');
+                return;
+            }
+
+            const now = new Date();
+            const expense = {
+                id: Date.now(),
+                date: now.toLocaleDateString('th-TH'), // Format for sheet
+                rawDate: now.toISOString().split('T')[0], // Format for filtering
+                time: now.toLocaleTimeString('th-TH'),
+                amount: parseFloat(amount),
+                note: note,
+                synced: false
+            };
+
+            // 1. Save Local First (Safety)
+            const expenses = getExpenses();
+            expenses.push(expense);
+            saveToLocal(expenses);
+
+            // Clear inputs
+            document.getElementById('amount').value = '';
+            document.getElementById('note').value = '';
+            
+            // 2. Try Syncing
+            if (navigator.onLine) {
+                const success = await sendToGoogleSheet(expense);
+                if (success) {
+                    // Update sync status in local storage
+                    const updatedExpenses = getExpenses();
+                    const target = updatedExpenses.find(e => e.id === expense.id);
+                    if (target) target.synced = true;
+                    saveToLocal(updatedExpenses);
+                }
+            }
+
+            alert('บันทึกเรียบร้อย! 🐱');
+        }
+
+        // --- SYNC ENGINE ---
+        async function sendToGoogleSheet(data) {
+            try {
+                // ใช้ no-cors เพื่อเลี่ยงปัญหา browser block แต่เราจะไม่รู้ response ที่แท้จริง
+                // แต่วิธีนี้ง่ายที่สุดสำหรับการทำ PWA ส่วนตัว
+                await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', 
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                return true; 
+            } catch (error) {
+                console.error("Sync Error:", error);
+                return false;
+            }
+        }
+
+        async function syncPendingData() {
+            const expenses = getExpenses();
+            const pending = expenses.filter(e => !e.synced);
+            
+            if (pending.length > 0 && navigator.onLine) {
+                console.log(`Found ${pending.length} pending items. Syncing...`);
+                for (let item of pending) {
+                    const success = await sendToGoogleSheet(item);
+                    if (success) {
+                        item.synced = true;
+                    }
+                }
+                saveToLocal(expenses); // Update status back to local
+            }
+        }
+
+        // --- REPORT UI ---
+        const modal = new bootstrap.Modal(document.getElementById('listModal'));
+
+        function showTodayList() {
+            const nowStr = new Date().toISOString().split('T')[0];
+            const expenses = getExpenses();
+            const todayItems = expenses.filter(e => e.rawDate === nowStr);
+            renderList("รายการวันนี้", todayItems);
+        }
+
+        function showHistory() {
+            // โชว์เป็นรายวัน (ยุบรวม)
+            const expenses = getExpenses();
+            const dailyMap = {};
+            
+            expenses.forEach(e => {
+                if (!dailyMap[e.date]) dailyMap[e.date] = 0;
+                dailyMap[e.date] += e.amount;
+            });
+
+            // สร้าง HTML รายการแบบสรุปวัน
+            let html = '<ul class="list-group">';
+            let totalAll = 0;
+            
+            // Sort by date desc (ล่าสุดขึ้นก่อน)
+            Object.keys(dailyMap).reverse().forEach(date => {
+                totalAll += dailyMap[date];
+                html += `
+                <li class="list-group-item d-flex justify-content-between align-items-center" onclick="showDetailByDate('${date}')" style="cursor:pointer;">
+                    ${date}
+                    <span class="badge bg-primary rounded-pill">${dailyMap[date].toLocaleString()} ฿</span>
+                </li>`;
+            });
+            html += '</ul>';
+
+            document.getElementById('modalTitle').innerText = "ประวัติรายวัน (กดเพื่อดูรายละเอียด)";
+            document.getElementById('modalListBody').innerHTML = html;
+            document.getElementById('modalTotal').innerText = totalAll.toLocaleString();
+            modal.show();
+        }
+
+        function showDetailByDate(dateStr) {
+            const expenses = getExpenses();
+            const items = expenses.filter(e => e.date === dateStr);
+            renderList(`รายละเอียด: ${dateStr}`, items);
+        }
+
+        function renderList(title, items) {
+            let html = '';
+            let total = 0;
+            
+            // เรียงจากล่าสุดไปเก่าสุด
+            items.sort((a, b) => b.id - a.id);
+
+            items.forEach(item => {
+                total += item.amount;
+                const statusColor = item.synced ? 'synced' : 'not-synced';
+                const noteTxt = item.note ? `<br><small class="text-muted">(${item.note})</small>` : '';
+                
+                html += `
+                <div class="expense-item">
+                    <div>
+                        <div class="fw-bold">${item.amount.toLocaleString()} ฿</div>
+                        <div class="expense-time">
+                            <span class="sync-status ${statusColor}" title="${item.synced ? 'Synced' : 'Pending'}"></span>
+                            ${item.time}
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        ${noteTxt}
+                    </div>
+                </div>`;
+            });
+
+            if (items.length === 0) html = '<div class="text-center py-3 text-muted">ไม่มีรายการจ้า</div>';
+
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalListBody').innerHTML = html;
+            document.getElementById('modalTotal').innerText = total.toLocaleString();
+            
+            // ถ้า Modal ยังไม่เปิด ให้เปิด (กรณีเรียกจาก Today)
+            // ถ้าเปิดอยู่แล้ว (เรียกจาก History) มันจะแค่เปลี่ยน content
+            modal.show();
+        }
+        
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+            .then(() => console.log('Service Worker Registered'));
+        }
+    </script>
 </body>
 </html>
