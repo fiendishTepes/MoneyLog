@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>บันทึกรายจ่าย</title>
+    <title>บันทึกรายจ่าย Meow</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#f8f9fa">
     <link rel="apple-touch-icon" href="icon192x192.png">
@@ -20,16 +21,39 @@
         .save-btn:active { transform: scale(0.98); }
         .footer { text-align: center; font-size: 0.8rem; color: #aaa; padding: 10px; }
         
-        /* Modal Customization */
+        /* Modal Styles */
         .modal-body { max-height: 60vh; overflow-y: auto; }
         .expense-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
         .expense-time { font-size: 0.8rem; color: #888; }
         .sync-status { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
-        .synced { background-color: #198754; }
+        .synced { background-color: #198754; } 
         .not-synced { background-color: #ffc107; }
+
+        /* Alert Container Style (ส่วนที่เพิ่มใหม่) */
+        #alert-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2000;
+            width: 90%;
+            max-width: 400px;
+        }
+        .custom-alert {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border: none;
+            border-radius: 15px;
+            animation: slideDown 0.3s ease-out;
+        }
+        @keyframes slideDown {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
     </style>
 </head>
 <body>
+
+    <div id="alert-container"></div>
 
     <div class="top-bar sticky-top">
         <button class="btn btn-outline-secondary btn-sm" onclick="showHistory()">
@@ -44,14 +68,12 @@
     <div class="main-content">
         <div class="text-center mb-2 text-muted">ระบุจำนวนเงิน</div>
         <input type="number" id="amount" class="amount-input" placeholder="0" inputmode="decimal">
-        
         <input type="text" id="note" class="note-input" placeholder="หมายเหตุ (ถ้ามี)">
-        
-        <button class="save-btn" onclick="saveExpense()">บันทึกรายจ่าย</button>
+        <button class="save-btn" onclick="saveExpense()">บันทึกรายจ่าย 🐾</button>
     </div>
 
     <div class="footer">
-        Version 1.0 by Cat 🐱<br>
+        Version 1.3 UI Alert by Cat 🐱<br>
         <span id="connectionStatus" style="font-size: 0.7rem;">Checking...</span>
     </div>
 
@@ -62,8 +84,7 @@
                     <h5 class="modal-title" id="modalTitle">รายการ</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body" id="modalListBody">
-                    </div>
+                <div class="modal-body" id="modalListBody"></div>
                 <div class="modal-footer justify-content-between">
                     <span class="text-muted small">รวม: <strong id="modalTotal" class="text-danger">0</strong> บาท</span>
                     <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ปิด</button>
@@ -75,8 +96,37 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // --- SETUP ---
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwfsZsqFXvn8gMYNgUWhi2h9zb_Zabcmwxp43812bhO1xJlFj0I-PWoZ5apGIMCnLPB/exec'; 
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzTZZrf2qT5DZDuZHOIhJROQhOUxFyyUwkhyE865a4skEVhdEQhU1tSgF3E2umH1FdDaQ/exec'; 
         
+        // --- ALERT SYSTEM (ฟังก์ชันใหม่) ---
+        function showAlert(message, type = 'success') {
+            const container = document.getElementById('alert-container');
+            const alertId = 'alert-' + Date.now();
+            
+            // เลือกไอคอนตามประเภท
+            let icon = type === 'success' ? '<i class="bi bi-check-circle-fill me-2"></i>' : '<i class="bi bi-exclamation-triangle-fill me-2"></i>';
+            let colorClass = type === 'success' ? 'alert-success' : 'alert-warning';
+
+            const html = `
+                <div id="${alertId}" class="alert ${colorClass} custom-alert d-flex align-items-center alert-dismissible fade show" role="alert">
+                    ${icon}
+                    <div>${message}</div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            container.innerHTML = html; // แสดงอันใหม่แทนอันเก่าเลย (จะได้ไม่ซ้อนกันเยอะ)
+
+            // ตั้งเวลาให้หายไปเอง 3 วินาที
+            setTimeout(() => {
+                const alertEl = document.getElementById(alertId);
+                if (alertEl) {
+                    const bsAlert = new bootstrap.Alert(alertEl);
+                    bsAlert.close();
+                }
+            }, 3000);
+        }
+
         // --- DATA MANAGEMENT ---
         function getExpenses() {
             const data = localStorage.getItem('expenses_db');
@@ -93,23 +143,21 @@
             const options = { year: 'numeric', month: 'short', day: 'numeric', weekday: 'short' };
             document.getElementById('currentDate').innerText = now.toLocaleDateString('th-TH', options);
             
-            // Check internet status
             updateOnlineStatus();
             window.addEventListener('online', updateOnlineStatus);
             window.addEventListener('offline', updateOnlineStatus);
             
-            // Try syncing pending data on load
             syncPendingData();
         });
 
         function updateOnlineStatus() {
             const status = document.getElementById('connectionStatus');
             if (navigator.onLine) {
-                status.innerText = "Online (พร้อมเชื่อมต่อ Sheet)";
+                status.innerText = "Online (พร้อมส่งข้อมูลเข้า Sheet)";
                 status.style.color = "green";
                 syncPendingData();
             } else {
-                status.innerText = "Offline (บันทึกลงเครื่องเท่านั้น)";
+                status.innerText = "Offline (บันทึกในเครื่องไปก่อน)";
                 status.style.color = "orange";
             }
         }
@@ -119,59 +167,61 @@
             const note = document.getElementById('note').value;
 
             if (!amount || amount <= 0) {
-                alert('กรุณาใส่จำนวนเงินครับเหมียว');
+                // เปลี่ยน alert เป็น showAlert
+                showAlert('กรุณาระบุจำนวนเงินก่อนนะเหมียว 😽', 'warning');
                 return;
             }
 
             const now = new Date();
             const expense = {
                 id: Date.now(),
-                date: now.toLocaleDateString('th-TH'), // Format for sheet
-                rawDate: now.toISOString().split('T')[0], // Format for filtering
+                date: now.toLocaleDateString('th-TH'), 
+                rawDate: now.toISOString().split('T')[0], 
                 time: now.toLocaleTimeString('th-TH'),
                 amount: parseFloat(amount),
                 note: note,
                 synced: false
             };
 
-            // 1. Save Local First (Safety)
             const expenses = getExpenses();
             expenses.push(expense);
             saveToLocal(expenses);
 
-            // Clear inputs
             document.getElementById('amount').value = '';
             document.getElementById('note').value = '';
+            document.getElementById('amount').focus(); // โฟกัสกลับไปที่ช่องกรอก
             
-            // 2. Try Syncing
+            // แจ้งเตือนสำเร็จ
+            showAlert('บันทึกเรียบร้อยจ้า! 😸', 'success');
+
             if (navigator.onLine) {
                 const success = await sendToGoogleSheet(expense);
                 if (success) {
-                    // Update sync status in local storage
                     const updatedExpenses = getExpenses();
                     const target = updatedExpenses.find(e => e.id === expense.id);
                     if (target) target.synced = true;
                     saveToLocal(updatedExpenses);
                 }
             }
-
-            alert('บันทึกเรียบร้อย! 🐱');
         }
 
         // --- SYNC ENGINE ---
         async function sendToGoogleSheet(data) {
             try {
-                // ใช้ no-cors เพื่อเลี่ยงปัญหา browser block แต่เราจะไม่รู้ response ที่แท้จริง
-                // แต่วิธีนี้ง่ายที่สุดสำหรับการทำ PWA ส่วนตัว
+                const formData = new FormData();
+                formData.append('date', data.date);
+                formData.append('time', data.time);
+                formData.append('amount', data.amount);
+                formData.append('note', data.note || '');
+
                 await fetch(GOOGLE_SCRIPT_URL, {
                     method: 'POST',
-                    mode: 'no-cors', 
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
+                    mode: 'no-cors',
+                    body: formData
                 });
                 return true; 
             } catch (error) {
-                console.error("Sync Error:", error);
+                console.error("Error:", error);
                 return false;
             }
         }
@@ -181,14 +231,11 @@
             const pending = expenses.filter(e => !e.synced);
             
             if (pending.length > 0 && navigator.onLine) {
-                console.log(`Found ${pending.length} pending items. Syncing...`);
                 for (let item of pending) {
                     const success = await sendToGoogleSheet(item);
-                    if (success) {
-                        item.synced = true;
-                    }
+                    if (success) item.synced = true;
                 }
-                saveToLocal(expenses); // Update status back to local
+                saveToLocal(expenses);
             }
         }
 
@@ -203,20 +250,15 @@
         }
 
         function showHistory() {
-            // โชว์เป็นรายวัน (ยุบรวม)
             const expenses = getExpenses();
             const dailyMap = {};
-            
             expenses.forEach(e => {
                 if (!dailyMap[e.date]) dailyMap[e.date] = 0;
                 dailyMap[e.date] += e.amount;
             });
 
-            // สร้าง HTML รายการแบบสรุปวัน
             let html = '<ul class="list-group">';
             let totalAll = 0;
-            
-            // Sort by date desc (ล่าสุดขึ้นก่อน)
             Object.keys(dailyMap).reverse().forEach(date => {
                 totalAll += dailyMap[date];
                 html += `
@@ -227,7 +269,7 @@
             });
             html += '</ul>';
 
-            document.getElementById('modalTitle').innerText = "ประวัติรายวัน (กดเพื่อดูรายละเอียด)";
+            document.getElementById('modalTitle').innerText = "ประวัติรายวัน";
             document.getElementById('modalListBody').innerHTML = html;
             document.getElementById('modalTotal').innerText = totalAll.toLocaleString();
             modal.show();
@@ -242,8 +284,6 @@
         function renderList(title, items) {
             let html = '';
             let total = 0;
-            
-            // เรียงจากล่าสุดไปเก่าสุด
             items.sort((a, b) => b.id - a.id);
 
             items.forEach(item => {
@@ -256,13 +296,10 @@
                     <div>
                         <div class="fw-bold">${item.amount.toLocaleString()} ฿</div>
                         <div class="expense-time">
-                            <span class="sync-status ${statusColor}" title="${item.synced ? 'Synced' : 'Pending'}"></span>
-                            ${item.time}
+                            <span class="sync-status ${statusColor}"></span>${item.time}
                         </div>
                     </div>
-                    <div class="text-end">
-                        ${noteTxt}
-                    </div>
+                    <div class="text-end">${noteTxt}</div>
                 </div>`;
             });
 
@@ -271,16 +308,11 @@
             document.getElementById('modalTitle').innerText = title;
             document.getElementById('modalListBody').innerHTML = html;
             document.getElementById('modalTotal').innerText = total.toLocaleString();
-            
-            // ถ้า Modal ยังไม่เปิด ให้เปิด (กรณีเรียกจาก Today)
-            // ถ้าเปิดอยู่แล้ว (เรียกจาก History) มันจะแค่เปลี่ยน content
             modal.show();
         }
-        
-        // Register Service Worker
+
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js')
-            .then(() => console.log('Service Worker Registered'));
+            navigator.serviceWorker.register('sw.js');
         }
     </script>
 </body>
