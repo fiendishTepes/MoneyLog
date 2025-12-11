@@ -21,34 +21,25 @@
         .save-btn:active { transform: scale(0.98); }
         .footer { text-align: center; font-size: 0.8rem; color: #aaa; padding: 10px; }
         
-        /* Modal Styles */
-        .modal-body { max-height: 60vh; overflow-y: auto; }
-        .expense-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
-        .expense-time { font-size: 0.8rem; color: #888; }
-        .sync-status { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
-        .synced { background-color: #198754; } 
-        .not-synced { background-color: #ffc107; }
+        /* List Styles */
+        .modal-body { max-height: 60vh; overflow-y: auto; background-color: #fff; }
+        .expense-item { background: white; border-bottom: 1px solid #f0f0f0; padding: 12px 5px; display: flex; justify-content: space-between; align-items: center; }
+        .expense-time { font-size: 0.75rem; color: #888; }
+        
+        /* Status Dots */
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; box-shadow: 0 0 3px rgba(0,0,0,0.2); }
+        .status-synced { background-color: #198754; border: 2px solid #fff; } 
+        .status-pending { background-color: #dc3545; border: 2px solid #fff; animation: pulse 2s infinite; }
 
-        /* Alert Container Style (ส่วนที่เพิ่มใหม่) */
-        #alert-container {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 2000;
-            width: 90%;
-            max-width: 400px;
-        }
-        .custom-alert {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            border: none;
-            border-radius: 15px;
-            animation: slideDown 0.3s ease-out;
-        }
-        @keyframes slideDown {
-            from { transform: translateY(-100%); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        /* Alert Container */
+        #alert-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 2000; width: 90%; max-width: 400px; }
+        .custom-alert { box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: none; border-radius: 15px; animation: slideDown 0.3s ease-out; }
+        @keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        
+        /* Loading */
+        .loading-spinner { display: flex; justify-content: center; align-items: center; padding: 20px; color: #d63384; }
     </style>
 </head>
 <body>
@@ -56,8 +47,8 @@
     <div id="alert-container"></div>
 
     <div class="top-bar sticky-top">
-        <button class="btn btn-outline-secondary btn-sm" onclick="showHistory()">
-            <i class="bi bi-clock-history"></i> ประวัติ
+        <button class="btn btn-outline-secondary btn-sm" onclick="showHistoryFromCloud()">
+            <i class="bi bi-cloud-download"></i> Cloud
         </button>
         <div class="date-display" id="currentDate">--/--/----</div>
         <button class="btn btn-outline-primary btn-sm" onclick="showTodayList()">
@@ -73,7 +64,7 @@
     </div>
 
     <div class="footer">
-        Version 1.3 UI Alert by Cat 🐱<br>
+        Version 4.0 Cloud Manager by Cat 🐱<br>
         <span id="connectionStatus" style="font-size: 0.7rem;">Checking...</span>
     </div>
 
@@ -85,9 +76,43 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="modalListBody"></div>
-                <div class="modal-footer justify-content-between">
-                    <span class="text-muted small">รวม: <strong id="modalTotal" class="text-danger">0</strong> บาท</span>
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ปิด</button>
+                
+                <div class="modal-footer d-flex flex-column">
+                    <div class="d-flex justify-content-between w-100 mb-2">
+                        <span class="text-muted">รวม:</span>
+                        <strong id="modalTotal" class="text-danger fs-5">0</strong>
+                    </div>
+                    <hr class="w-100 my-1">
+                    <button type="button" id="clearCacheBtn" class="btn btn-outline-danger btn-sm w-100 mt-2" onclick="clearAllCache()">
+                        <i class="bi bi-trash3-fill"></i> ล้างข้อมูลในเครื่องทั้งหมด (Reset)
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm w-100 mt-2" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="editModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">แก้ไขรายการ (Cloud)</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editRow">
+                    <div class="mb-3">
+                        <label class="form-label">จำนวนเงิน</label>
+                        <input type="number" id="editAmount" class="form-control form-control-lg text-center fw-bold text-primary" inputmode="decimal">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">หมายเหตุ</label>
+                        <input type="text" id="editNote" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="button" class="btn btn-primary" onclick="submitEdit()">บันทึกการแก้ไข</button>
                 </div>
             </div>
         </div>
@@ -96,35 +121,17 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // --- SETUP ---
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzTZZrf2qT5DZDuZHOIhJROQhOUxFyyUwkhyE865a4skEVhdEQhU1tSgF3E2umH1FdDaQ/exec'; 
-        
-        // --- ALERT SYSTEM (ฟังก์ชันใหม่) ---
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzihzLVOFEqn_ydRhoUMZaNpBrSpfKEREx10d65klULXTBGHhXH29tNRzmdjwxKvThW_g/exec'; 
+
+        // --- ALERT SYSTEM ---
         function showAlert(message, type = 'success') {
             const container = document.getElementById('alert-container');
             const alertId = 'alert-' + Date.now();
-            
-            // เลือกไอคอนตามประเภท
             let icon = type === 'success' ? '<i class="bi bi-check-circle-fill me-2"></i>' : '<i class="bi bi-exclamation-triangle-fill me-2"></i>';
             let colorClass = type === 'success' ? 'alert-success' : 'alert-warning';
-
-            const html = `
-                <div id="${alertId}" class="alert ${colorClass} custom-alert d-flex align-items-center alert-dismissible fade show" role="alert">
-                    ${icon}
-                    <div>${message}</div>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            `;
-            
-            container.innerHTML = html; // แสดงอันใหม่แทนอันเก่าเลย (จะได้ไม่ซ้อนกันเยอะ)
-
-            // ตั้งเวลาให้หายไปเอง 3 วินาที
-            setTimeout(() => {
-                const alertEl = document.getElementById(alertId);
-                if (alertEl) {
-                    const bsAlert = new bootstrap.Alert(alertEl);
-                    bsAlert.close();
-                }
-            }, 3000);
+            const html = `<div id="${alertId}" class="alert ${colorClass} custom-alert d-flex align-items-center alert-dismissible fade show" role="alert">${icon}<div>${message}</div><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
+            container.innerHTML = html;
+            setTimeout(() => { const alertEl = document.getElementById(alertId); if (alertEl) { const bsAlert = new bootstrap.Alert(alertEl); bsAlert.close(); } }, 3000);
         }
 
         // --- DATA MANAGEMENT ---
@@ -137,6 +144,95 @@
             localStorage.setItem('expenses_db', JSON.stringify(expenses));
         }
 
+        function deleteItem(id) {
+            if(confirm('ต้องการลบรายการนี้ใช่ไหม? (ลบเฉพาะในเครื่อง)')) {
+                let expenses = getExpenses();
+                expenses = expenses.filter(e => e.id !== id); 
+                saveToLocal(expenses);
+                showTodayList(); 
+                showAlert('ลบรายการในเครื่องแล้ว', 'warning');
+            }
+        }
+
+        function clearAllCache() {
+            const password = prompt("กรุณาใส่รหัสผ่านเพื่อล้างข้อมูล:");
+            if (password === '123456789') {
+                if(confirm('ยืนยันครั้งสุดท้าย! ข้อมูลในเครื่องจะหายหมดเลยนะ?')) {
+                    localStorage.removeItem('expenses_db');
+                    location.reload(); 
+                }
+            } else if (password !== null) {
+                alert('รหัสผ่านไม่ถูกต้อง! 😾');
+            }
+        }
+
+        // --- CLOUD MANAGEMENT (NEW) ---
+        async function deleteCloudItem(row) {
+            const password = prompt("ใส่รหัสผ่านเพื่อลบข้อมูลบน Cloud:");
+            if (password === '123456789') {
+                // ปิด Modal ก่อนเพื่อแสดง Loading
+                const listModal = bootstrap.Modal.getInstance(document.getElementById('listModal'));
+                listModal.hide();
+                showAlert('กำลังลบข้อมูลบน Cloud...', 'warning');
+
+                try {
+                    const formData = new FormData();
+                    formData.append('action', 'delete');
+                    formData.append('row', row);
+
+                    await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: formData });
+                    
+                    setTimeout(() => {
+                        showAlert('ลบข้อมูลบน Cloud เรียบร้อย!', 'success');
+                        showHistoryFromCloud(); // โหลดใหม่
+                    }, 2000); // รอแป๊บเพราะ no-cors ไม่รู้ว่าเสร็จจริงไหม
+                } catch (e) {
+                    alert('Error: ' + e);
+                }
+            } else if (password !== null) {
+                alert('รหัสผิด ห้ามลบมั่วซั่วนะ! 😾');
+            }
+        }
+
+        // เปิด Modal แก้ไข
+        const editModal = new bootstrap.Modal(document.getElementById('editModal'));
+        function openEditModal(row, amount, note) {
+            document.getElementById('editRow').value = row;
+            document.getElementById('editAmount').value = amount;
+            document.getElementById('editNote').value = note;
+            
+            // ซ่อน Modal รายการก่อน
+            const listModal = bootstrap.Modal.getInstance(document.getElementById('listModal'));
+            listModal.hide();
+            
+            editModal.show();
+        }
+
+        async function submitEdit() {
+            const row = document.getElementById('editRow').value;
+            const amount = document.getElementById('editAmount').value;
+            const note = document.getElementById('editNote').value;
+
+            if(!amount) return alert('ใส่เงินด้วยครับ');
+
+            editModal.hide();
+            showAlert('กำลังบันทึกการแก้ไข...', 'warning');
+
+            const formData = new FormData();
+            formData.append('action', 'edit');
+            formData.append('row', row);
+            formData.append('amount', amount);
+            formData.append('note', note);
+
+            await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: formData });
+
+            setTimeout(() => {
+                showAlert('แก้ไขเรียบร้อย!', 'success');
+                showHistoryFromCloud(); // เปิดรายการ Cloud ขึ้นมาใหม่
+            }, 2000);
+        }
+
+
         // --- UI LOGIC ---
         document.addEventListener('DOMContentLoaded', () => {
             const now = new Date();
@@ -146,19 +242,18 @@
             updateOnlineStatus();
             window.addEventListener('online', updateOnlineStatus);
             window.addEventListener('offline', updateOnlineStatus);
-            
             syncPendingData();
         });
 
         function updateOnlineStatus() {
             const status = document.getElementById('connectionStatus');
             if (navigator.onLine) {
-                status.innerText = "Online (พร้อมส่งข้อมูลเข้า Sheet)";
+                status.innerText = "Online (พร้อมทำงาน)";
                 status.style.color = "green";
                 syncPendingData();
             } else {
-                status.innerText = "Offline (บันทึกในเครื่องไปก่อน)";
-                status.style.color = "orange";
+                status.innerText = "Offline (โหมดออฟไลน์)";
+                status.style.color = "red";
             }
         }
 
@@ -167,8 +262,7 @@
             const note = document.getElementById('note').value;
 
             if (!amount || amount <= 0) {
-                // เปลี่ยน alert เป็น showAlert
-                showAlert('กรุณาระบุจำนวนเงินก่อนนะเหมียว 😽', 'warning');
+                showAlert('ใส่เงินด้วยเจ้ามนุษย์ 😽', 'warning');
                 return;
             }
 
@@ -189,10 +283,8 @@
 
             document.getElementById('amount').value = '';
             document.getElementById('note').value = '';
-            document.getElementById('amount').focus(); // โฟกัสกลับไปที่ช่องกรอก
-            
-            // แจ้งเตือนสำเร็จ
-            showAlert('บันทึกเรียบร้อยจ้า! 😸', 'success');
+            document.getElementById('amount').focus();
+            showAlert('บันทึกเรียบร้อย! 😸', 'success');
 
             if (navigator.onLine) {
                 const success = await sendToGoogleSheet(expense);
@@ -205,20 +297,16 @@
             }
         }
 
-        // --- SYNC ENGINE ---
         async function sendToGoogleSheet(data) {
             try {
                 const formData = new FormData();
+                formData.append('action', 'add'); // บอกว่าเป็น Action Add
                 formData.append('date', data.date);
                 formData.append('time', data.time);
                 formData.append('amount', data.amount);
                 formData.append('note', data.note || '');
 
-                await fetch(GOOGLE_SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    body: formData
-                });
+                await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: formData });
                 return true; 
             } catch (error) {
                 console.error("Error:", error);
@@ -229,7 +317,6 @@
         async function syncPendingData() {
             const expenses = getExpenses();
             const pending = expenses.filter(e => !e.synced);
-            
             if (pending.length > 0 && navigator.onLine) {
                 for (let item of pending) {
                     const success = await sendToGoogleSheet(item);
@@ -239,46 +326,95 @@
             }
         }
 
-        // --- REPORT UI ---
+        // --- DISPLAY LOGIC ---
         const modal = new bootstrap.Modal(document.getElementById('listModal'));
 
         function showTodayList() {
             const nowStr = new Date().toISOString().split('T')[0];
             const expenses = getExpenses();
             const todayItems = expenses.filter(e => e.rawDate === nowStr);
-            renderList("รายการวันนี้", todayItems);
-        }
-
-        function showHistory() {
-            const expenses = getExpenses();
-            const dailyMap = {};
-            expenses.forEach(e => {
-                if (!dailyMap[e.date]) dailyMap[e.date] = 0;
-                dailyMap[e.date] += e.amount;
-            });
-
-            let html = '<ul class="list-group">';
-            let totalAll = 0;
-            Object.keys(dailyMap).reverse().forEach(date => {
-                totalAll += dailyMap[date];
-                html += `
-                <li class="list-group-item d-flex justify-content-between align-items-center" onclick="showDetailByDate('${date}')" style="cursor:pointer;">
-                    ${date}
-                    <span class="badge bg-primary rounded-pill">${dailyMap[date].toLocaleString()} ฿</span>
-                </li>`;
-            });
-            html += '</ul>';
-
-            document.getElementById('modalTitle').innerText = "ประวัติรายวัน";
-            document.getElementById('modalListBody').innerHTML = html;
-            document.getElementById('modalTotal').innerText = totalAll.toLocaleString();
+            renderList("รายการวันนี้ (ในเครื่อง)", todayItems, false);
+            document.getElementById('clearCacheBtn').style.display = 'block'; // โชว์ปุ่มล้าง
             modal.show();
         }
 
-        function showDetailByDate(dateStr) {
-            const expenses = getExpenses();
-            const items = expenses.filter(e => e.date === dateStr);
-            renderList(`รายละเอียด: ${dateStr}`, items);
+        function showHistoryFromCloud() {
+            if (!navigator.onLine) {
+                showAlert('ต้องต่อเน็ตเพื่อดู Cloud นะเหมียว 😿', 'warning');
+                return;
+            }
+
+            document.getElementById('modalTitle').innerText = "ประวัติจาก Google Sheet";
+            document.getElementById('modalListBody').innerHTML = `
+                <div class="loading-spinner">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <span class="ms-2">กำลังโหลดข้อมูล...</span>
+                </div>`;
+            document.getElementById('modalTotal').innerText = "...";
+            document.getElementById('clearCacheBtn').style.display = 'none'; // ซ่อนปุ่มล้าง Cache เพราะดู Cloud
+            
+            modal.show();
+
+            fetch(GOOGLE_SCRIPT_URL)
+                .then(response => response.json())
+                .then(data => { processCloudData(data); })
+                .catch(error => {
+                    document.getElementById('modalListBody').innerHTML = `<div class="text-center text-danger p-3">Error: ${error}</div>`;
+                });
+        }
+
+        function processCloudData(data) {
+            const dailyMap = {};
+            let totalAll = 0;
+            data.forEach(item => {
+                const amount = parseFloat(item.amount);
+                totalAll += amount;
+                if (!dailyMap[item.date]) dailyMap[item.date] = [];
+                dailyMap[item.date].push(item);
+            });
+
+            let html = '';
+            const dates = Object.keys(dailyMap).reverse();
+            
+            if (dates.length === 0) html = '<div class="text-center py-3 text-muted">Empty</div>';
+            else {
+                html += '<div class="accordion" id="historyAccordion">';
+                dates.forEach((date, index) => {
+                    const items = dailyMap[date];
+                    let dayTotal = items.reduce((sum, item) => sum + parseFloat(item.amount), 0);
+                    let collapseId = `collapse${index}`;
+                    html += `
+                    <div class="accordion-item border-0 mb-2 shadow-sm rounded overflow-hidden">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed d-flex justify-content-between" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}">
+                                <div class="w-100 d-flex justify-content-between pe-2">
+                                    <span>${date}</span>
+                                    <span class="fw-bold text-primary">${dayTotal.toLocaleString()}</span>
+                                </div>
+                            </button>
+                        </h2>
+                        <div id="${collapseId}" class="accordion-collapse collapse" data-bs-parent="#historyAccordion">
+                            <div class="accordion-body bg-light p-2">
+                                ${items.map(item => `
+                                    <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-white">
+                                        <div class="flex-grow-1">
+                                            <div class="fw-bold">${parseFloat(item.amount).toLocaleString()}</div>
+                                            <small class="text-muted">${item.time} ${item.note ? '('+item.note+')' : ''}</small>
+                                        </div>
+                                        <div>
+                                            <button class="btn btn-sm btn-outline-secondary me-1" onclick="openEditModal(${item.row}, ${item.amount}, '${item.note||''}')"><i class="bi bi-pencil"></i></button>
+                                            <button class="btn btn-sm btn-outline-danger" onclick="deleteCloudItem(${item.row})"><i class="bi bi-trash"></i></button>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>`;
+                });
+                html += '</div>';
+            }
+            document.getElementById('modalListBody').innerHTML = html;
+            document.getElementById('modalTotal').innerText = totalAll.toLocaleString() + " บาท";
         }
 
         function renderList(title, items) {
@@ -288,27 +424,30 @@
 
             items.forEach(item => {
                 total += item.amount;
-                const statusColor = item.synced ? 'synced' : 'not-synced';
-                const noteTxt = item.note ? `<br><small class="text-muted">(${item.note})</small>` : '';
+                const statusClass = item.synced ? 'status-synced' : 'status-pending';
+                const statusTitle = item.synced ? 'บันทึกแล้ว' : 'ยังไม่บันทึก';
+                const noteTxt = item.note ? `<div class="small text-muted">${item.note}</div>` : '';
                 
                 html += `
                 <div class="expense-item">
-                    <div>
-                        <div class="fw-bold">${item.amount.toLocaleString()} ฿</div>
-                        <div class="expense-time">
-                            <span class="sync-status ${statusColor}"></span>${item.time}
+                    <div class="d-flex align-items-center flex-grow-1">
+                        <span class="status-dot ${statusClass}" title="${statusTitle}"></span>
+                        <div class="ms-2">
+                            <div class="fw-bold fs-5">${item.amount.toLocaleString()} ฿</div>
+                            <div class="expense-time">${item.time} ${noteTxt}</div>
                         </div>
                     </div>
-                    <div class="text-end">${noteTxt}</div>
+                    <button class="btn btn-sm btn-outline-danger border-0" onclick="deleteItem(${item.id})">
+                        <i class="bi bi-trash"></i>
+                    </button>
                 </div>`;
             });
 
-            if (items.length === 0) html = '<div class="text-center py-3 text-muted">ไม่มีรายการจ้า</div>';
+            if (items.length === 0) html = '<div class="text-center py-5 text-muted">ยังไม่มีรายการวันนี้</div>';
 
             document.getElementById('modalTitle').innerText = title;
             document.getElementById('modalListBody').innerHTML = html;
-            document.getElementById('modalTotal').innerText = total.toLocaleString();
-            modal.show();
+            document.getElementById('modalTotal').innerText = total.toLocaleString() + " บาท";
         }
 
         if ('serviceWorker' in navigator) {
